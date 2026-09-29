@@ -1,18 +1,21 @@
-version: '3'
-services:
-  web-api:
-    build: .
-    # VULNERABILITY: Mapping to 0.0.0.0 makes the app public to the entire network
-    ports:
-      - "80:80"
-    # VULNERABILITY: Privileged mode gives the container root access to the host kernel
-    privileged: true
-    depends_on:
-      - broker
+version: '3.8'
 
-  broker:
-    image: redis:latest # VULNERABILITY: Using 'latest' tag (Mutable/Unpredictable)
-    # VULNERABILITY: Exposing the database port to the outside world
+services:
+  api:
+    build: .
+    image: data-processing-api:latest
+    container_name: cyberdyne-api
+    # FIX: Bind port strictly to localhost (127.0.0.1) instead of 0.0.0.0 
+    # to prevent unauthorized external access from public networks.
     ports:
-      - "6379:6379"
-    command: redis-server --requirepass admin_password_123
+      - "127.0.0.1:5000:5000"
+    
+    # FIX: Added a restart policy for reliability and container resilience
+    restart: unless-stopped
+    
+    environment:
+      - FLASK_ENV=production
+      
+    # FIX: Security hardening option to prevent privilege escalation inside the container
+    security_opt:
+      - no-new-privileges:true

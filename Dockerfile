@@ -1,17 +1,27 @@
-# VULNERABILITY: Using a massive base image (includes compilers, shells, and tools)
-FROM python:3.11
+# FIX: Using a secure slim base image instead of a massive one
+FROM python:3.11-slim
 
-# VULNERABILITY: Running as root by default
+# Create a non-root user and group for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Set working directory
 WORKDIR /app
 
-# VULNERABILITY: Copying sensitive local files (like .env or .git) into the image
+# Install dependencies first to leverage Docker layer caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy only the necessary application source code
 COPY app/ .
 
-# VULNERABILITY: No caching optimization for layers
-RUN pip install flask redis rq
+# FIX: Change ownership of the app directory to the non-root user
+RUN chown -R appuser:appuser /app
 
-# VULNERABILITY: Exposing a privileged port
-EXPOSE 80
+# Switch to the non-root user (Prevents running as root)
+USER appuser
 
-# VULNERABILITY: Using a shell-based entrypoint which is susceptible to shell injection
-CMD python app.py
+# Expose a non- port (e.g., 5000 instead of 80)
+EXPOSE 5000
+
+# FIX: Using JSON array format for CMD to prevent shell injection and handle OS signals properly
+CMD ["python", "app.py"]
